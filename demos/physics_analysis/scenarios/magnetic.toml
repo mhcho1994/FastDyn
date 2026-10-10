@@ -1,0 +1,8 @@
+name = "Zigzag / current magnetic interference"
+
+[attack]
+kind = "magnetic"
+start_s = 140.0
+duration_s = 60.0
+ramp_s = 10.0
+magnetic_scale = 1.0

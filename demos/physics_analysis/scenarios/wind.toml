@@ -1,0 +1,11 @@
+name = "Zigzag / strong wind and gusts"
+
+[attack]
+kind = "wind"
+start_s = 140.0
+duration_s = 60.0
+ramp_s = 10.0
+wind_mean_mps = 5.0
+wind_gust_mps = 10.0
+wind_from_deg = 270.0
+wind_frequency_hz = 0.1

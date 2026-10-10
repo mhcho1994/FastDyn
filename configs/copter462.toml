@@ -147,6 +147,8 @@ env = { PYTHONPATH = "." }
 command = [
     "mavproxy.py",
     "--daemon",
+    "--logfile=${FASTDYN_WORK_DIR}/mission.tlog",
+    "--cmd=set flushlogs True",
     "--master=udpout:127.0.0.1:${FASTDYN_MAVLINK_FIRMWARE_PORT:-14551}",
     "--out=udpout:127.0.0.1:${FASTDYN_MAVLINK_GCS_PORT:-14552}",
     "--load-module=fastdyn_cesium:{\"port\":${FASTDYN_MAVCESIUM_PORT:-5000}}",

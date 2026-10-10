@@ -581,3 +581,7 @@ pytest tests/unit/ -v
 # Run a specific test file
 pytest tests/unit/test_patch.py -v
 ```
+
+### Optional physics analysis demo
+
+[Quadrotor physics analysis and Three.js visualization](demos/physics_analysis/README.md) provides FMU truth recording, the Rumoca live viewer, offline replay, and scenario comparisons in a separate demo package. It uses the existing ArduCopter 4.6.2 setup and does not add recording or web dependencies to FastDyn core.

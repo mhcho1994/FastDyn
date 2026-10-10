@@ -1,0 +1,11 @@
+Quadrotor model attribution
+
+Based on "Drone" by Cafitz3D, licensed under CC-BY-4.0.
+Source: https://sketchfab.com/3d-models/drone-2588b8a0917d474e97886763c98a65af
+Author: https://sketchfab.com/Cafitz3D
+License: https://creativecommons.org/licenses/by/4.0/
+
+Source asset: third_party/common/rumoca/examples/assets/models/drone.glb
+Changes: centered at the local origin, uniformly scaled to a 0.9 m horizontal
+span, and rotated from +Z forward to +X forward for Cesium's vehicle heading.
+Original mesh, materials, and embedded attribution are preserved.

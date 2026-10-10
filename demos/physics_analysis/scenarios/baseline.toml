@@ -1,0 +1,7 @@
+name = "Zigzag / baseline"
+
+[attack]
+kind = "none"
+start_s = 140.0
+duration_s = 60.0
+ramp_s = 10.0

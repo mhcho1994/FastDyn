@@ -65,3 +65,37 @@ contains:
 If the run does not boot, begin with the CPU/machine selection, memory map,
 ELF/vector address, QEMU path, and peripheral routing. Use `fastdyn help` to
 find valid configuration values without memorizing them.
+
+## Copter trajectory and flight-state plots
+
+Run from the FastDyn directory with `fastdyn-env` activated:
+
+```bash
+fastdyn run -c configs/copter462.toml -o out/fmi3
+python utils/plot_copter_trajectory.py \
+  --log out/fmi3/mission.tlog \
+  --output out/fmi3/plots/copter
+```
+
+The Copter configuration records MAVLink telemetry in the run directory. Plot
+only after the mission has finished recording. The script saves two figures,
+each in PNG, PDF, and SVG formats:
+
+- `copter_trajectory_3d`: measured North/East/altitude trajectory, numbered mission
+  waypoints, and green/red quadrotors at the first/last plotted samples. The
+  enlarged quadrotor geometry follows the recorded roll, pitch, and yaw.
+- `copter_dynamics`: three subplots for NED velocity and 3D speed (m/s),
+  roll/pitch/yaw (degrees), and body angular rates p/q/r (degrees/s).
+
+Time starts at the first position sample after an armed AUTO heartbeat. Altitude
+is relative to the firmware home. Yaw is unwrapped to avoid jumps at ±180 degrees;
+its original wrapped values are also saved in `copter_attitude.csv`. The angular
+rates are body-axis gyro rates, not Euler-angle derivatives. Position and attitude
+CSV files preserve their individual telemetry timestamps; the summary JSON records
+units, frames, the actual plotted time range, and whether a disarm was observed.
+The final icon marks the last recorded position, which may precede touchdown.
+
+Select a shorter recorded interval with `--start 30 --end 60`. To plot a different
+mission, pass its QGC waypoint file with `--mission path/to/mission.waypoints`.
+Use the waypoint file belonging to the recording. A requested end time beyond
+the available telemetry is rejected rather than extrapolated.

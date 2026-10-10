@@ -1,0 +1,11 @@
+name = "Zigzag / gyro bias and false rate"
+
+[attack]
+kind = "gyro"
+start_s = 140.0
+duration_s = 60.0
+ramp_s = 10.0
+gyro_bias_yaw_dps = 3.0
+gyro_false_roll_dps = 2.0
+gyro_false_yaw_dps = 8.0
+gyro_frequency_hz = 0.25

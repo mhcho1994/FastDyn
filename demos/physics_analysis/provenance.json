@@ -1,0 +1,38 @@
+{
+  "source_project": "quad_dc_fastdyn_rumoca_analysis",
+  "original_scene_provenance": {
+    "rumoca_repository": "https://github.com/cognipilot/rumoca",
+    "rumoca_checkout_commit": "7ddbadf77eb5699580c32cef680c3e1ea3a36fdc",
+    "source_path": "examples/interactive/quadrotor/quadrotor_scene.js",
+    "local_path": "assets/scene/quadrotor_scene.js",
+    "sha256": "a050681e23a1175015f9b518c00dfd8c04c95b575494d0ba1fcf9a7feb0cbfcb",
+    "identical_to_checkout_file": false,
+    "adapter": "excitation.html and monte_carlo.js supply recorded poses, satellite imagery and documentary overlays; windsock.js visualizes recorded wind.",
+    "identical_after_asset_path_rebase": true
+  },
+  "runtime_rumoca_commit_at_integration": "4b4a31c0ea5eab5ef948a2616969768a2204b5f0",
+  "vendored_three_version": "0.170.0",
+  "vendored_files": {
+    "GLTFLoader.js": {
+      "source": "assets/scene/vendor/GLTFLoader.js",
+      "sha256": "8a7db5a19d1018d79fb9a7a8b8372f317682027321a67d86023002e264ea479d"
+    },
+    "three.module.js": {
+      "source": "assets/scene/vendor/three.module.js",
+      "sha256": "ce1fa418de16a19495a9f72495580e3015d7745c296d3ce0485897f902ddedfb"
+    },
+    "BufferGeometryUtils.js": {
+      "source": "assets/scene/vendor/BufferGeometryUtils.js",
+      "sha256": "c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6"
+    }
+  },
+  "attack_model_reference": {
+    "source_commit": "9f7b1b0c5034689dbbce77c627267cc0c7a0e3bc",
+    "files": {
+      "models/FastDyn/CopterMissionEnsemble.mo": "a58866a69478c8fe769cd468570b8ed1c5d319efadb5f3888ae445a2d8b6e414",
+      "config/base_vehicle_overlay.toml": "09b1b08af5a8c0a64e5ae1eb2bb5377107b9e25de42abb74231482f4f3ba9a02",
+      "src/fire_analysis/simulation/mission_runtime.py": "c10e19b1ea21d7c57cb3c1c666cedbeecf1f43d2771417ccc2a00d2585025c83"
+    },
+    "adaptation": "Reference current-to-magnetic slopes and sin^8 gust envelope. New smooth finite-time scheduling, GPS spoof and gyro injections are demo-owned. Current is an illustrative proxy, not an electrical model."
+  }
+}

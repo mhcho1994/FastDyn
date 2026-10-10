@@ -49,11 +49,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gps-fusion-timeout", type=float, default=180.0)
     parser.add_argument("--monitor-sec", type=float, default=180.0)
     parser.add_argument(
+        "--completion", choices=("landing", "waypoints"), default="landing",
+        help="Finish after landing or after the final waypoint is reached",
+    )
+    parser.add_argument(
         "--exit-on-complete",
         dest="exit_on_complete",
         action="store_true",
         default=True,
-        help="Stop monitoring once the final mission item has landed near ground",
+        help="Stop monitoring when the selected completion condition is met",
     )
     parser.add_argument(
         "--no-exit-on-complete",
@@ -392,6 +396,13 @@ def handle_runtime_message(
                     state.setdefault("final_item_seen_at", time.monotonic())
             print(f"[mission] current item {seq}/{count - 1}", flush=True)
             timing.mark("mission.current_item", seq=seq, count=count)
+    elif msg_type == "MISSION_ITEM_REACHED" and count is not None:
+        if int(msg.get_srcSystem()) != mav.target_system:
+            return
+        seq = int(msg.seq)
+        print(f"[mission] reached item {seq}/{count - 1}", flush=True)
+        if state is not None and seq == count - 1:
+            state["final_item_reached"] = True
     elif msg_type == "STATUSTEXT":
         text = getattr(msg, "text", "").strip()
         if text:
@@ -436,12 +447,21 @@ def handle_runtime_message(
             if not state.get("gps_ready"):
                 timing.mark("mission.gps_ready", echo=True, fix_type=int(getattr(msg, "fix_type", 0)))
             state["gps_ready"] = True
+    elif msg_type == "EKF_STATUS_REPORT" and state is not None:
+        required = (mavutil.mavlink.EKF_ATTITUDE
+                    | mavutil.mavlink.EKF_VELOCITY_HORIZ
+                    | mavutil.mavlink.EKF_POS_HORIZ_ABS)
+        state["ekf_ready"] = int(msg.flags) & required == required
     elif msg_type == "HEARTBEAT":
         if int(msg.get_srcSystem()) == mav.target_system:
             armed = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
             if state is not None:
                 state["armed"] = armed
                 state["mode"] = mavutil.mode_string_v10(msg)
+                state["autopilot_ready"] = int(msg.system_status) in (
+                    mavutil.mavlink.MAV_STATE_STANDBY,
+                    mavutil.mavlink.MAV_STATE_ACTIVE,
+                )
 
 
 def wait_for_autopilot_ready(mav: mavutil.mavfile, timeout: float) -> None:
@@ -570,7 +590,7 @@ def wait_for_gps_fusion(mav: mavutil.mavfile, count: int, timeout: float) -> Non
         if msg is None:
             continue
         handle_runtime_message(mav, msg, count=count, state=state)
-        if state.get("gps_fusing"):
+        if state.get("gps_fusing") or state.get("ekf_ready"):
             print("[mission] EKF GPS fusion confirmed", flush=True)
             timing.mark("mission.gps_fusion_confirmed", echo=True)
             return
@@ -603,7 +623,8 @@ def wait_for_mode(mav: mavutil.mavfile, mode: str, count: int, timeout: float) -
     raise RuntimeError(f"timed out switching to {mode} after {timeout:g}s")
 
 
-def monitor(mav: mavutil.mavfile, count: int, duration: float, *, exit_on_complete: bool) -> None:
+def monitor(mav: mavutil.mavfile, count: int, duration: float, *, exit_on_complete: bool,
+            completion: str = "landing") -> None:
     print(f"[mission] monitoring for {duration:g}s", flush=True)
     deadline = time.monotonic() + duration
     state: dict[str, object] = {
@@ -616,13 +637,19 @@ def monitor(mav: mavutil.mavfile, count: int, duration: float, *, exit_on_comple
         if msg is None:
             continue
         handle_runtime_message(mav, msg, count=count, state=state)
-        if exit_on_complete and state.get("final_item_seen"):
+        if exit_on_complete and completion == "waypoints" and state.get("final_item_reached"):
+            print("[mission] final waypoint reached", flush=True)
+            timing.mark("mission.completed", echo=True, completion=completion)
+            return
+        if exit_on_complete and completion == "landing" and state.get("final_item_seen"):
             rel_alt = state.get("rel_alt_m")
             if rel_alt is not None and float(rel_alt) <= 1.0:
                 print("[mission] final landing confirmed near ground", flush=True)
                 timing.mark("mission.completed", echo=True, rel_alt_m=float(rel_alt))
                 return
     print("[mission] monitor timeout reached", flush=True)
+    if exit_on_complete and completion == "waypoints":
+        raise RuntimeError(f"final waypoint not reached within {duration:g}s")
 
 
 def main() -> int:
@@ -633,11 +660,11 @@ def main() -> int:
     with timing.phase("mission.total"):
         with timing.phase("mission.connect"):
             mav = connect(args.connect, args.heartbeat_timeout)
-        with timing.phase("mission.wait_autopilot_ready"):
-            wait_for_autopilot_ready(mav, args.ready_timeout)
         with timing.phase("mission.load_params"):
             load_params(mav, args.param_file)
             load_mutation_params(mav, args.mutation_params, args.mutation_bin)
+        with timing.phase("mission.wait_autopilot_ready"):
+            wait_for_autopilot_ready(mav, args.ready_timeout)
         with timing.phase("mission.upload"):
             count = upload_mission(mav, args.mission_file, args.mission_timeout)
         if not args.no_arm:
@@ -656,7 +683,8 @@ def main() -> int:
             with timing.phase("mission.set_mode"):
                 set_mode(mav, args.mode)
         with timing.phase("mission.monitor", duration=args.monitor_sec):
-            monitor(mav, count, args.monitor_sec, exit_on_complete=args.exit_on_complete)
+            monitor(mav, count, args.monitor_sec, exit_on_complete=args.exit_on_complete,
+                    completion=args.completion)
     return 0
 
 

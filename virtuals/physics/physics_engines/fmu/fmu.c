@@ -109,6 +109,7 @@ typedef struct {
     fmi3Terminate_ft terminate;
     double time_s;
     double pwm[4];
+    double pwm_neutral[4];
     bool pwm_dirty;
     bool initialized;
     fmu_value_refs_t vr;
@@ -492,12 +493,14 @@ static int fmu_backend_init(void)
 
     if (fmu_state.enterInitializationMode(fmu_state.instance, 0, 0.0, 0.0, 0, 0.0) != fmi3OK ||
         !set_configured_parameters() ||
-        !set_pwm_inputs() ||
+        fmu_state.getFloat64(fmu_state.instance, &fmu_state.vr.pwm, 1, fmu_state.pwm, 4) != fmi3OK ||
         fmu_state.exitInitializationMode(fmu_state.instance) != fmi3OK) {
         fprintf(stderr, "FMU initialization failed for %s\n", so_path);
         goto fail;
     }
 
+    // Model-defined neutral controls: Copter uses 1000 us, Rover uses 1500 us.
+    memcpy(fmu_state.pwm_neutral, fmu_state.pwm, sizeof(fmu_state.pwm));
     fmu_state.time_s = 0.0;
     fmu_state.initialized = true;
     printf("FMU backend loaded: %s\n", so_path);
@@ -588,6 +591,12 @@ static int fmu_get_navsat_reading(gps_data_t *gps_data)
 static int fmu_set_servo_pwm(int channel, int pwm)
 {
     if (channel < 0 || channel >= 4) {
+        return 1;
+    }
+    // Firmware reports zero for disabled outputs; keep the model neutral.
+    if (pwm == 0) {
+        fmu_state.pwm[channel] = fmu_state.pwm_neutral[channel];
+        fmu_state.pwm_dirty = true;
         return 1;
     }
     if (pwm < 900) {

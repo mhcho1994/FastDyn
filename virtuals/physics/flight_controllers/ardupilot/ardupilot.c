@@ -698,6 +698,7 @@ static volatile int ins_read_count = 0;
  */
 void ins_block_read(unsigned int cpu_index, void *udata)
 {
+    uint32_t device = (uint32_t)qemu_get_register(ARM_V7M_R0);
     uint32_t reg = (uint32_t)qemu_get_register(ARM_V7M_R1);
     uint32_t buf = (uint32_t)qemu_get_register(ARM_V7M_R2);
     uint32_t size = (uint32_t)qemu_get_register(ARM_V7M_R3);
@@ -705,6 +706,45 @@ void ins_block_read(unsigned int cpu_index, void *udata)
 
     if (reg == 0x72)
     {
+        if (phy_backend_is("fmu")) {
+            // The emulated MPU6000 gyro samples at 8 kHz. Only report
+            // samples that have arrived since this device's previous FIFO
+            // poll. Copter 4.7 hooks the common Device::read_registers()
+            // method, so one process can reach this callback for more than
+            // one IMU. Sharing one timestamp makes later devices report empty
+            // FIFOs and can throttle the main loop below SCHED_LOOP_RATE.
+            enum { MAX_IMU_FIFO_DEVICES = 8 };
+            static uint32_t devices[MAX_IMU_FIFO_DEVICES];
+            static uint64_t last_sample_ns[MAX_IMU_FIFO_DEVICES];
+            int device_slot = -1;
+            for (int i = 0; i < MAX_IMU_FIFO_DEVICES; i++) {
+                if (devices[i] == device) {
+                    device_slot = i;
+                    break;
+                }
+                if (devices[i] == 0) {
+                    devices[i] = device;
+                    device_slot = i;
+                    break;
+                }
+            }
+            if (device_slot < 0) {
+                qemu_set_register(0, ARM_V7M_R0);
+                qemu_set_register(qemu_get_register(ARM_V7M_LR), ARM_V7M_PC);
+                return;
+            }
+            uint64_t now_ns = qemu_plugin_get_virtual_timer();
+            uint64_t *last_ns = &last_sample_ns[device_slot];
+            if (*last_ns == 0 || now_ns < *last_ns) {
+                *last_ns = now_ns;
+            }
+            uint64_t samples = (now_ns - *last_ns) / 125000;
+            *last_ns += samples * 125000;
+            if (samples > 32) {
+                samples = 32;
+            }
+            count = (uint16_t)(samples * 14);
+        }
         uint8_t count_bytes[2];
         fifo_count_to_bytes(count, count_bytes);
         qemu_plugin_write_memory(buf, count_bytes, 2);
@@ -736,9 +776,9 @@ void ins_block_read(unsigned int cpu_index, void *udata)
         ins_read_count++;
 #endif // PROFILE_INS_READS
 
-        if (size < 14)
+        if (size < 14 || size > 32 * 14 || size % 14 != 0)
         {
-            fprintf(stderr, "INS block read size too small: %u\n", size);
+            fprintf(stderr, "Invalid INS block read size: %u\n", size);
             qemu_set_register(0, ARM_V7M_R0);                             // failure
             qemu_set_register(qemu_get_register(ARM_V7M_LR), ARM_V7M_PC); // return
             return;
@@ -754,12 +794,11 @@ void ins_block_read(unsigned int cpu_index, void *udata)
             return;
         }
 
-        uint16_t mini_batch_size = 8 * 14; // 8 samples of 14 bytes each
-        uint8_t imu_data_bytes[mini_batch_size];
+        uint8_t imu_data_bytes[32 * 14];
         memset(imu_data_bytes, 0, sizeof(imu_data_bytes));
-        for (int i = 0; i < 8; i++)
+        for (uint32_t i = 0; i < size / 14; i++)
         {
-            imu_t imu = imu_batch.imu[i];
+            imu_t imu = imu_batch.imu[i < 17 ? i : 16];
             float accel_x = imu.accel_body.x;
             float accel_y = imu.accel_body.y;
             float accel_z = imu.accel_body.z;
@@ -843,7 +882,7 @@ void ins_block_read(unsigned int cpu_index, void *udata)
         // uint8_t imu_data_bytes[14];
         // convert_int16_array_to_be_bytes(imu_data_int16, 7, imu_data_bytes);
 
-        qemu_plugin_write_memory(buf, imu_data_bytes, mini_batch_size);
+        qemu_plugin_write_memory(buf, imu_data_bytes, size);
         qemu_set_register(1, ARM_V7M_R0);                             // success
         qemu_set_register(qemu_get_register(ARM_V7M_LR), ARM_V7M_PC); // return
     }
@@ -894,10 +933,11 @@ HMC5843RawData convert_to_hmc5843(SimulatorMagnetometer sim_data)
     // int mag_y_raw = temp_z;    // raw Z -> Y
     // int mag_z_raw = -1 * temp_y;   // raw Y -> Z (negated)
 
-    // Conversion from FLU to FRD
-    temp_x = temp_x;
-    temp_y = -1 * temp_y;
-    temp_z = -1 * temp_z;
+    // FMI models already provide FRD; only Gazebo's FLU needs conversion.
+    if (phy_get_imu_frame() == PHY_BODY_FRAME_FLU) {
+        temp_y = -temp_y;
+        temp_z = -temp_z;
+    }
 
     // Apply hardware remapping for HMC5843
     int mag_x_raw = temp_y;
@@ -914,7 +954,6 @@ HMC5843RawData convert_to_hmc5843(SimulatorMagnetometer sim_data)
     mag_y_raw = constrain_int16(mag_y_raw, -2048, 2047);
     mag_z_raw = constrain_int16(mag_z_raw, -2048, 2047);
 
-    // y and z are negated because +z is up and +y is left from gazebo
     HMC5843RawData raw = {
         .mag_x_raw = (int16_t)(mag_x_raw),
         .mag_y_raw = (int16_t)(mag_y_raw),
@@ -1093,16 +1132,8 @@ void compass_configure(unsigned int cpu_index, void *udata)
  */
 void chibiOS_tick_handler(unsigned int cpu_index, void *udata)
 {
-    // uint32_t tick_frequency = 1000; // 1 kHz
-    uint32_t tick_frequency = 10000; // 1 MHz
-
-    int64_t current_nanos = qemu_plugin_get_virtual_timer();
-    uint32_t current_millis = (uint32_t)(current_nanos / 1000000);
-    // printf("Current millis: %u\n", current_millis);
-    uint32_t system_ticks = current_millis * tick_frequency / 1000;
-    qemu_set_register(system_ticks, ARM_V7M_R0);
-    uint32_t lr = qemu_get_register(ARM_V7M_LR);
-    qemu_set_register(lr, ARM_V7M_PC);
+    // stGetCounter() is the same 1 MHz TIM5 counter used by AP_HAL::micros().
+    micros32(cpu_index, udata);
 }
 
 static uint32_t gcs_uarts[8] = {0};

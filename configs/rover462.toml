@@ -78,7 +78,7 @@ auto_build = true
 [FMU.models.rover]
 model = "FastDyn.Rover"
 model_file = "modelica/FastDyn/Rover.mo"
-source_roots = ["modelica", "third_party/common/modelica_models"]
+source_roots = ["third_party/common/modelica_models"]
 output = "out/fmi3/Rover"
 build = true
 release = false

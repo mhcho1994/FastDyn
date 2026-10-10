@@ -1,0 +1,88 @@
+/* Appended only to the demo copy of Rumoca's generated C. FMI ABI unchanged. */
+#undef fmi3DoStep
+#undef fmi3FreeInstance
+#undef fmi3Terminate
+#undef fmi3Reset
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+typedef struct DemoObserver {
+    fmi3Instance instance;
+    FILE *file;
+    double next, last;
+    struct DemoObserver *next_instance;
+} DemoObserver;
+static DemoObserver *demo_observers = NULL;
+
+static void demo_close(fmi3Instance i) {
+    DemoObserver **p = &demo_observers;
+    while (*p) {
+        if ((*p)->instance == i) {
+            DemoObserver *old = *p;
+            if (old->file) fclose(old->file);
+            *p = old->next_instance;
+            free(old);
+            return;
+        }
+        p = &(*p)->next_instance;
+    }
+}
+
+static int demo_record(fmi3Instance i, double t) {
+    const char *path = getenv("PHYSICS_DEMO_TRUTH_PATH");
+    if (!path || !*path) return 1;
+    DemoObserver *o = demo_observers;
+    while (o && o->instance != i) o = o->next_instance;
+    if (!o) {
+        o = calloc(1, sizeof(*o));
+        if (!o) return 0;
+        o->instance = i;
+        o->last = -INFINITY;
+        /* Exclusive creation prevents silently overwriting another run. */
+        o->file = fopen(path, "wx");
+        if (!o->file) { perror("physics demo truth file"); free(o); return 0; }
+        setvbuf(o->file, NULL, _IOLBF, 0);
+        fprintf(o->file, "@HEADER@\n");
+        o->next_instance = demo_observers;
+        demo_observers = o;
+    }
+    if (!isfinite(t) || t < o->last) return 0;
+    if (t + 1e-9 < o->next) return 1;
+    double values[@COUNT@];
+    fmi3ValueReference vr;
+    @READS@
+    for (int j = 0; j < @COUNT@; ++j) if (!isfinite(values[j])) return 0;
+    fprintf(o->file, "%.9f", t);
+    for (int j = 0; j < @COUNT@; ++j) fprintf(o->file, ",%.12g", values[j]);
+    /* No electrical model: unknown current and voltage stay empty. */
+    fprintf(o->file, ",,\n");
+    o->last = t;
+    o->next = t + 0.05; /* 20 Hz in simulation time, independent of wall speed. */
+    return !ferror(o->file);
+}
+
+FMI_EXPORT fmi3Status fmi3DoStep(fmi3Instance i, fmi3Float64 current,
+    fmi3Float64 step, fmi3Boolean noSetState, fmi3Boolean *eventNeeded,
+    fmi3Boolean *terminate, fmi3Boolean *earlyReturn, fmi3Float64 *lastTime) {
+    fmi3Status result = demo_original_fmi3DoStep(i, current, step, noSetState,
+        eventNeeded, terminate, earlyReturn, lastTime);
+    if (result <= fmi3Warning && !demo_record(i, lastTime ? *lastTime : current + step)) {
+        fprintf(stderr, "physics demo: truth recording failed at t=%.9f\n", current);
+        return fmi3Error;
+    }
+    return result;
+}
+FMI_EXPORT void fmi3FreeInstance(fmi3Instance i) {
+    demo_close(i);
+    demo_original_fmi3FreeInstance(i);
+}
+FMI_EXPORT fmi3Status fmi3Terminate(fmi3Instance i) {
+    demo_close(i);
+    return demo_original_fmi3Terminate(i);
+}
+FMI_EXPORT fmi3Status fmi3Reset(fmi3Instance i) {
+    demo_close(i);
+    /* A subsequent recorded run requires a new truth path. */
+    return demo_original_fmi3Reset(i);
+}

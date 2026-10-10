@@ -1,5 +1,55 @@
 # ArduRover Rehosting Setup
 
+## FMU rover mission and trajectory plots
+
+현재 `configs/rover462.toml`은 부팅 후 health check만 실행합니다. 사각형
+웨이포인트를 실제로 주행하고 궤적을 저장하려면 FastDyn 루트에서 실행합니다.
+
+```bash
+source fastdyn-env/bin/activate
+# C 런타임 수정 후 한 번 실행
+ninja -C build
+bash utils/run_rover_trajectory.sh
+```
+
+실행마다 `out/rover-trajectory/<UTC timestamp>/`에 `mission.tlog`,
+`console.log`, 사용한 설정/미션/파라미터 사본, `trajectory.csv`,
+`trajectory.json`, `trajectory_2d.{png,svg,pdf}`, `trajectory_3d.{png,svg,pdf}`를
+저장합니다. 완료 판정은 마지막 `MISSION_ITEM_REACHED` 수신입니다.
+`MISSION_CURRENT`가 마지막 항목으로 바뀐 것만으로 완료 처리하지 않습니다.
+기본 미션은 약 16 m × 17 m 사각형이며 목표 속도는 2 m/s입니다.
+기본 MAVLink 포트를 공유하므로 다른 차량 시뮬레이션과 동시에 실행하지 않습니다.
+
+특정 구간을 다시 그리려면 실제 실행 폴더를 지정합니다. 예를 들어 30–60초는
+아래와 같으며, 90초 이상 기록한 미션에서는 `--end 90`을 사용할 수 있습니다.
+
+```bash
+run_dir=out/rover-trajectory/<UTC-timestamp>
+python utils/plot_rover_trajectory.py \
+  --log "$run_dir/mission.tlog" \
+  --mission "$run_dir/mission.waypoints" \
+  --output "$run_dir/trajectory_30_60" \
+  --start 30 --end 60 --require-complete
+```
+
+시간은 **armed AUTO 진입 후 첫 위치 샘플을 0초로 한 펌웨어 시뮬레이션 시간**입니다.
+그래프는 `GLOBAL_POSITION_INT`의 위치 추정값을 사용하며, 미션 홈 좌표에서
+North/East 미터 좌표로 변환합니다. 파란색은 궤적, 초록색은 구간 시작점,
+빨간색은 종료점, 검은색과 번호는 미션 웨이포인트입니다.
+지상 rover이므로 3D 그래프의 높이는 거의 일정합니다. 높이는 AUTO 직전
+2초간의 정지 고도 중앙값을 빼서 표시합니다. `relative_alt`가 약 149 m로
+보고되는 실행도 있지만, 이는 고도 기준점 문제이며 지상고 149 m를 뜻하지 않습니다.
+CSV에는 원래의 절대/상대 고도와 변환한 높이를 모두 보존합니다.
+
+FMU 런타임은 모델에 선언된 PWM 초기값을 사용하고, 비활성 채널의 0 PWM도
+그 초기값으로 처리합니다. Rover의 중립값은 1500이고 Copter는 1000입니다.
+FMU의 FRD 자력계에는 Gazebo용 FLU→FRD 변환을 중복 적용하지 않습니다.
+IMU FIFO는 가상 시간 기준 8 kHz 샘플 수와 요청된 읽기 길이를 사용하며,
+rover의 `AP_InertialSensor::wait_for_sample()` 대기를 유지해 자세 적분 시간을 맞춥니다.
+ChibiOS의 `stGetCounter()`도 동일한 1 MHz 가상 마이크로초 카운터를 사용합니다.
+
+## Legacy Gazebo setup
+
 This guide covers the legacy ArduRover/Courbet Gazebo setup. The maintained default FastDyn path uses the FMU/Rumoca backend; use this flow when you specifically need the older Gazebo backend with `LIBGZ=true` and `LIBHW=true`.
 
 ## Docker Build

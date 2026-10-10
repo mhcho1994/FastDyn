@@ -7,11 +7,64 @@ configs, but defaults to zero.
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 from pathlib import Path
 import time
 
 from MAVProxy.modules.mavproxy_cesium import CesiumModule
+from MAVProxy.modules.mavproxy_cesium.app import cesium_web_server
+from tornado.httpserver import HTTPServer
+from tornado.web import RequestHandler, StaticFileHandler
+
+
+_ASSETS = Path(__file__).with_name("cesium_assets")
+
+
+class _QuadrotorCoreHandler(RequestHandler):
+    def get(self):
+        # Keep upstream controls/telemetry intact and replace only its model URL.
+        core = Path(cesium_web_server.APP_STATIC) / "DST/js/core.js"
+        script = core.read_text(encoding="utf-8")
+        original = "models/Cesium_Air.glb"
+        if original not in script:
+            raise RuntimeError("MAVCesium core.js no longer contains the expected aircraft model")
+        script = script.replace(original, "models/quadrotor.glb")
+        script += """
+// Model credit remains visible alongside Cesium's map attribution.
+viewer.entities.getById('vehicle').name = 'Quadrotor';
+var quadrotorCredit = document.createElement('div');
+quadrotorCredit.style.cssText = 'position:absolute;bottom:30px;left:8px;z-index:5;' +
+    'padding:2px 6px;background:rgba(0,0,0,0.65);color:white;font:11px sans-serif;';
+quadrotorCredit.innerHTML = '<a style="color:white" target="_blank" rel="noopener" ' +
+    'href="https://sketchfab.com/3d-models/drone-2588b8a0917d474e97886763c98a65af">' +
+    'Drone by Cafitz3D</a> · <a style="color:white" target="_blank" rel="noopener" ' +
+    'href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (adapted)';
+viewer.container.appendChild(quadrotorCredit);
+"""
+        self.set_header("Content-Type", "application/javascript; charset=utf-8")
+        self.set_header("Cache-Control", "no-store")
+        self.write(script)
+
+
+class _FastDynCesiumApplication(cesium_web_server.Application):
+    def __init__(self, config, module_callback):
+        super().__init__(config, module_callback)
+        prefix = re.escape("/" + config.APP_PREFIX + "static/DST/")
+        self.add_handlers(r".*$", [
+            (prefix + r"js/core\.js", _QuadrotorCoreHandler),
+            (prefix + r"models/(quadrotor\.glb)", StaticFileHandler,
+             {"path": str(_ASSETS)}),
+        ])
+
+
+def _start_fastdyn_app(config, module_callback):
+    logging.getLogger("tornado").setLevel(logging.WARNING)
+    application = _FastDynCesiumApplication(config, module_callback)
+    server = HTTPServer(application)
+    server.listen(port=int(config.SERVER_PORT), address=str(config.SERVER_INTERFACE))
+    return server
 
 
 def _write_dynamic_config(
@@ -50,6 +103,11 @@ def _write_dynamic_config(
 
 
 class FastDynCesiumModule(CesiumModule):
+    def start_server(self):
+        # Reuse the upstream server lifecycle with FastDyn's asset routes.
+        cesium_web_server.start_app = _start_fastdyn_app
+        super().start_server()
+
     def __init__(
         self,
         mpstate,

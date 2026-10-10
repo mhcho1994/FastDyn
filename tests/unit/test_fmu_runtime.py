@@ -121,8 +121,8 @@ def test_rejects_archive_path_escape(build, tmp_path):
     assert not (tmp_path/"run/escaped").exists()
 
 
-@pytest.fixture
-def native_probe(tmp_path):
+@pytest.fixture(params=[1000, 1500], ids=["copter-neutral", "rover-neutral"])
+def native_probe(tmp_path, request):
     if shutil.which("cc") is None:
         pytest.skip("requires C compiler")
     # A small FMI 3 implementation that rejects incorrect tokens and references.
@@ -145,10 +145,12 @@ int fmi3EnterInitializationMode(void *s, bool td, double tol, double start,
     bool sd, double stop) { ((State *)s)->time = start; return 0; }
 int fmi3ExitInitializationMode(void *s) { ((State *)s)->ready = true; return 0; }
 int fmi3SetFloat64(void *s, const uint32_t *vr, size_t nr, const double *v, size_t nv) {
-    return nr == 1 && vr[0] == 101 && nv == 4 && v[0] == 1000 ? 0 : 3;
+    if (nr != 1 || vr[0] != 101 || nv != 4) return 3;
+    for (size_t k = 0; k < nv; ++k) if (v[k] != NEUTRAL_PWM) return 3;
+    return 0;
 }
 int fmi3GetFloat64(void *s, const uint32_t *vr, size_t nr, double *v, size_t nv) {
-    for (size_t k = 0; k < nv; ++k) v[k] = 0;
+    for (size_t k = 0; k < nv; ++k) v[k] = vr[0] == 101 ? NEUTRAL_PWM : 0;
     return 0;
 }
 int fmi3DoStep(void *s, double t, double h, bool no_rollback, bool *event,
@@ -162,7 +164,7 @@ int fmi3DoStep(void *s, double t, double h, bool no_rollback, bool *event,
 int fmi3Terminate(void *s) { return 0; }
 """)
     library = tmp_path/"probe.so"
-    subprocess.run(["cc", "-shared", "-fPIC", str(source), "-lm", "-o", str(library)], check=True)
+    subprocess.run(["cc", "-shared", "-fPIC", f"-DNEUTRAL_PWM={request.param}", str(source), "-lm", "-o", str(library)], check=True)
     driver = tmp_path/"driver.c"
     driver.write_text(r"""
 #include "physics_engines/fmu/fmu.h"
@@ -171,6 +173,9 @@ int main(int argc, char **argv) {
     fmu_init(argc-1, argv+1);
     if (!fmu_backend.init()) return 2;
     for (int i = 1; i <= 200; ++i) {
+        // Disabled firmware outputs must not drive the plant in reverse.
+        if (i == 100 && !fmu_backend.set_servo_pwm(0, 0)) return 4;
+        if (i == 150 && !fmu_backend.set_servo_pwm(2, 0)) return 5;
         if (!fmu_backend.advance_simulation(i * 0.001)) return 3;
     }
     fmu_backend.shutdown();

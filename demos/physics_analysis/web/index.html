@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FastDyn · Physics analysis</title>
+<link rel="stylesheet" href="/web/style.css">
+<script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+</head><body>
+<header><div><span class="eyebrow">FASTDYN / PHYSICS ANALYSIS</span><h1>Zigzag mission · attack analysis</h1></div><a href="/">Live Rumoca viewer ↗</a></header>
+<div id="notice" role="status">Loading recorded FMU states…</div>
+<section class="toolbar" aria-label="Replay controls"><button id="play">Play</button><button id="reset">Start</button><label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>5</option></select>×</label><label>Camera <select id="camera"><option value="scene">Follow</option><option value="overview">Overview</option><option value="top">Top</option></select></label><label>Trail <select id="trail"><option value="30">30 s</option><option value="120">120 s</option><option value="all">All</option><option value="0">Off</option></select></label><label class="scrub"><span id="clock">0.00 s</span><input id="time" type="range" min="0" max="1" step="0.01" value="0" aria-label="Simulation time"></label></section>
+<main id="panes"></main>
+<section class="plot"><div><h2>Altitude <small>solid: truth · dashed: command</small></h2><canvas id="altitude" width="1400" height="180"></canvas></div><div><h2>Heading error <small>waypoint flight · wrapped to ±180°</small></h2><canvas id="heading" width="1400" height="180"></canvas></div><div><h2>Position estimate error <small>waypoint flight · horizontal estimate − truth [m]</small></h2><canvas id="position-error" width="1400" height="180"></canvas></div><div><h2>Segment tracking error <small>truth distance from commanded leg [m]</small></h2><canvas id="segment-error" width="1400" height="180"></canvas></div></section>
+<footer>Absolute simulation time · NWU / FLU · Three.js + Rumoca scene · <a href="https://sketchfab.com/Cafitz3D">Drone mesh: Cafitz3D (CC BY 4.0)</a> · Mesh scale is illustrative. Electrical signals may be unavailable.</footer>
+<script type="module" src="/web/player.js"></script></body></html>
