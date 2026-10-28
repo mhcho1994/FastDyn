@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FastDyn · Acoustic flight replay</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/web/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+</head>
+<body>
+  <header>
+    <div><span class="eyebrow">FASTDYN / RUMOCA</span><h1>Acoustic noise · Flight comparison</h1></div>
+    <div class="header-note">Recorded FMU position and attitude<br><span>Control and exposure aligned at sweep onset.</span></div>
+  </header>
+  <div id="notice" role="status">Loading flight recordings and the Rumoca scene…</div>
+  <section class="toolbar" aria-label="Playback settings">
+    <button id="play" disabled>Play</button>
+    <label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>5</option><option>10</option></select>×</label>
+    <label>Camera <select id="camera"><option value="scene">Follow vehicle</option><option value="overview">Overview</option><option value="top">Top view</option></select></label>
+    <label>Trail <select id="trail"><option value="5">Last 5 s</option><option value="all" selected>All</option><option value="0">Off</option></select></label>
+    <label>Range <select id="range"><option value="sweep">Exposure + 10 s recovery</option><option value="full">Full shared recording</option></select></label>
+    <label>Sensor axis <select id="axis"><option value="0">Roll / X</option><option value="1">Pitch / Y</option><option value="2">Yaw / Z</option></select></label>
+  </section>
+  <section class="timeline" aria-label="Time navigation">
+    <div class="time-heading"><span>Time since sweep onset</span><output id="clock">0.00 s</output><div id="events"></div></div>
+    <input id="time" type="range" min="0" max="1" step="0.001" value="0" aria-label="Time since sweep onset" disabled>
+    <div class="time-bounds"><span id="time-start"></span><span id="time-end"></span></div>
+  </section>
+  <main id="panes"></main>
+  <section class="charts" aria-label="Flight signal comparison">
+    <div class="chart" id="altitude"><h2>True altitude <small>m · FMU truth</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+    <div class="chart" id="distance"><h2>Horizontal distance from home <small>m · FMU truth</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+    <div class="chart" id="attitude"><h2>Attitude <small>deg · solid: FMU / dashed: PX4 estimate</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+    <div class="chart" id="gyro"><h2>Gyro <small>deg/s · solid: after injection / dashed: before injection</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+    <div class="chart" id="false-rate"><h2>Injected false angular rate <small>rad/s</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+    <div class="chart" id="body-rate"><h2>True body angular rate <small>deg/s · solid: FMU / dashed: PX4 filtered</small></h2><div class="graph"><canvas></canvas><i class="cursor"></i></div></div>
+  </section>
+  <footer>
+    <p>Shading: exposure window · Dotted line: model resonance crossing · Pink line: early ground contact · Drag/scroll: adjust both cameras</p>
+    <p>Summary metrics use all original samples. The simulated acoustic response uses illustrative assumptions, without calibration against a physical vehicle.</p>
+    <p>Rumoca quadrotor scene · Three.js · <a href="https://sketchfab.com/Cafitz3D">Drone: Cafitz3D</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>) · Display mesh scale: 3× · Propeller RPM not recorded · <a href="/web/CREDITS.md">Credits</a></p>
+  </footer>
+  <script type="module" src="/web/player.js"></script>
+</body>
+</html>

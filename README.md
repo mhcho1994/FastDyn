@@ -163,6 +163,8 @@ device models. Start with [docs/RunningFastDyn.md](docs/RunningFastDyn.md) and
   FMUv3, vehicle selection, dry-runs, swarm execution, and legacy Docker/Gazebo.
 - `docs/FlightControllerSimulation.md`: ArduCopter/Rover/Plane with FMI v3
   physics, MAVCesium, helper processes, profiling, `fastdyn swarm`, CI.
+- `docs/AcousticSweep.md`: PX4 v1.17.0-rc2 / P2 quadrotor paired acoustic
+  sweep/control configurations, reduced gyro response and flight-state traces.
 - `docs/Fuzzing.md`: the fuzzing workflows (LibAFL/AFLNet, OptiFuzz).
 - `docs/FastDyn_STR_Integration.md`: schema-driven fuzzing integration guide.
 - `tests/integration/README.md`: local integration smoke and mission tests.

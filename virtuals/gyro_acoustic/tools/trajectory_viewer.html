@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acoustic sweep — full 3D trajectories</title>
+<style>
+body{margin:0;background:#f5f7fa;color:#202d3b;font:15px system-ui,sans-serif}header{padding:20px 28px;background:white;border-bottom:1px solid #dbe2e9}h1{font-size:22px;margin:0 0 8px}p{margin:5px 0;color:#526273}main{padding:12px 24px}.controls{display:flex;gap:22px;align-items:center;flex-wrap:wrap;padding:10px 4px}button{border:1px solid #c6d1dc;background:white;border-radius:5px;padding:7px 12px;cursor:pointer}canvas{display:block;width:100%;height:70vh;background:white;border:1px solid #dbe2e9;border-radius:8px;touch-action:none;cursor:grab}.blue{color:#0072b2}.orange{color:#d55e00}small{color:#526273}
+</style>
+<header><h1>Full 3D trajectories · PX4 v1.17.0-rc2</h1><p>Direct FMU CG position · axes: North / East / Up in metres · equal metric scaling</p><p>Drag to rotate, scroll to zoom. Toggle a flight and press Fit to inspect the control flight.</p></header>
+<main><div class="controls"><label class="blue"><input type="checkbox" id="baseline" checked>0 Pa control</label><label class="orange"><input type="checkbox" id="exposure" checked>20 Pa sweep</label><button id="fit">Fit selected flights</button><button id="top">Top view</button><button id="reset">Reset 3D</button><span>● start &nbsp; ▲ sweep onset &nbsp; ★ early ground contact &nbsp; × end</span></div><canvas id="view"></canvas><p id="detail"></p><small>The full recording is shown. Geometry is downsampled for interaction; the CSV artifacts preserve all recorded samples. Static PNG/PDF views are available alongside this file. No network connection is required.</small></main>
+<script>
+const flights=__TRAJECTORY_DATA__;
+const canvas=document.getElementById('view'),ctx=canvas.getContext('2d');
+let yaw=-.9,pitch=.6,zoom=1,center=[0,0,0],extent=20,width,height,drag=null;
+const selected=()=>Object.entries(flights).filter(([key])=>document.getElementById(key).checked);
+function fit(){const points=selected().flatMap(([,f])=>f.points);if(!points.length)return;const low=[0,1,2].map(k=>Math.min(...points.map(p=>p[k]))),high=[0,1,2].map(k=>Math.max(...points.map(p=>p[k])));center=low.map((v,k)=>(v+high[k])/2);extent=Math.max(...high.map((v,k)=>v-low[k]),1);zoom=1;draw();}
+function project(p){let [x,y,z]=p.map((v,k)=>v-center[k]);const a=Math.cos(yaw),b=Math.sin(yaw),depth=b*x+a*y;const scale=.65*Math.min(width,height)/extent*zoom;return [width/2+(a*x-b*y)*scale,height/2-(Math.cos(pitch)*z-Math.sin(pitch)*depth)*scale];}
+function line(points,color,lineWidth=1){ctx.beginPath();for(let i=0;i<points.length;i++){const p=project(points[i]);i?ctx.lineTo(...p):ctx.moveTo(...p);}ctx.strokeStyle=color;ctx.lineWidth=lineWidth;ctx.stroke();}
+function text(p,s,color='#697989'){const v=project(p);ctx.fillStyle=color;ctx.fillText(s,v[0]+5,v[1]-6);}
+function draw(){if(!width)return;ctx.clearRect(0,0,width,height);ctx.font='12px system-ui';const step=Math.pow(10,Math.floor(Math.log10(extent/4)));const n0=Math.floor((center[0]-extent/2)/step)*step,e0=Math.floor((center[1]-extent/2)/step)*step;
+for(let i=0;i<=extent/step+2;i++){const n=n0+i*step,e=e0+i*step;line([[n,e0,0],[n,e0+extent+step,0]],'#e8edf2');line([[n0,e,0],[n0+extent+step,e,0]],'#e8edf2');}
+const length=extent*.3;line([[0,0,0],[length,0,0]],'#4c647a',1.4);line([[0,0,0],[0,length,0]],'#4c647a',1.4);line([[0,0,0],[0,0,length]],'#4c647a',1.4);text([length,0,0],`North +${length.toFixed(1)} m`);text([0,length,0],`East +${length.toFixed(1)} m`);text([0,0,length],`Up +${length.toFixed(1)} m`);
+for(const [,f] of selected()){line(f.points,f.color,2);for(const m of f.markers){const p=project(m.position);ctx.font='bold 18px system-ui';ctx.fillStyle=f.color;ctx.fillText(m.symbol,p[0]-6,p[1]+6);ctx.font='12px system-ui';text(m.position,`${m.label} (${m.time.toFixed(2)} s)`,f.color);}}
+ctx.fillStyle='#526273';ctx.font='12px system-ui';ctx.fillText(`Ground grid: ${step.toFixed(step<1?2:0)} m · marker times relative to sweep start`,15,height-16);
+}
+function resize(){const r=canvas.getBoundingClientRect(),d=window.devicePixelRatio||1;width=r.width;height=r.height;canvas.width=width*d;canvas.height=height*d;ctx.setTransform(d,0,0,d,0,0);draw();}
+canvas.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);});canvas.addEventListener('pointermove',e=>{if(!drag)return;yaw+=(e.clientX-drag[0])*.006;pitch=Math.max(-1.55,Math.min(1.55,pitch+(e.clientY-drag[1])*.006));drag=[e.clientX,e.clientY];draw();});canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.15,Math.min(15,zoom*Math.exp(-e.deltaY*.001)));draw();},{passive:false});
+document.getElementById('fit').onclick=fit;document.getElementById('top').onclick=()=>{yaw=0;pitch=1.55;draw();};document.getElementById('reset').onclick=()=>{yaw=-.9;pitch=.6;fit();};for(const key of Object.keys(flights))document.getElementById(key).onchange=draw;
+document.getElementById('detail').textContent=Object.values(flights).map(f=>`${f.label}: ${f.recorded.toFixed(1)} simulated seconds, ${f.samples.toLocaleString()} recorded samples`).join(' | ');window.addEventListener('resize',resize);resize();fit();
+</script></html>

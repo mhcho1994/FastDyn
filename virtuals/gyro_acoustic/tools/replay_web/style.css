@@ -1,0 +1,61 @@
+:root {
+  color-scheme: dark;
+  font: 14px system-ui, sans-serif;
+  color: #e7eef5;
+  background: #101820;
+}
+* { box-sizing: border-box; }
+body { max-width: 1760px; margin: 0 auto; padding: 24px 30px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+h1 { margin: 6px 0 18px; font-size: 27px; font-weight: 600; letter-spacing: -.6px; }
+.eyebrow { color: #78c9e9; letter-spacing: 2px; font-size: 10px; }
+.header-note { line-height: 1.8; text-align: right; color: #c4d4e1; font-size: 12px; }
+.header-note span { color: #8ea5b8; }
+a { color: #94cce6; }
+#notice { padding: 10px 14px; background: #1b2a36; border-left: 3px solid #6bc6e3; color: #bed4e2; font-size: 12px; }
+.toolbar { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+.toolbar label { display: flex; align-items: center; gap: 6px; color: #afc2d0; font-size: 12px; }
+button, select { padding: 7px 10px; background: #253747; border: 1px solid #41566a; border-radius: 5px; color: #eff7ff; font: inherit; }
+button { cursor: pointer; }
+button:hover { background: #344d60; }
+button:disabled { opacity: .4; cursor: wait; }
+#play { background: #126c8d; min-width: 90px; }
+.timeline { margin-bottom: 18px; padding: 12px 16px 7px; border: 1px solid #344756; border-radius: 7px; background: #182630; }
+.time-heading { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: #a7bfce; font-size: 12px; }
+#clock { min-width: 90px; font-size: 18px; color: #eff9ff; font-variant-numeric: tabular-nums; }
+#events { display: flex; gap: 7px; margin-left: auto; flex-wrap: wrap; }
+#events button { font-size: 11px; padding: 5px 8px; }
+#time { width: 100%; margin: 12px 0 3px; accent-color: #69c7e9; cursor: pointer; }
+.time-bounds { display: flex; justify-content: space-between; color: #96aebe; font-size: 10px; }
+#panes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.pane { min-width: 0; border: 1px solid #3a4b59; border-top: 3px solid var(--case-color); border-radius: 8px; background: #182530; overflow: hidden; }
+.pane-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; }
+.pane-top strong { color: var(--case-color); font-size: 15px; }
+.badge { font-size: 11px; padding: 4px 8px; border-radius: 4px; background: #263846; color: #c5d5df; }
+.badge.active { background: #654b20; color: #ffdda6; }
+.badge.contact { background: #633247; color: #ffd4e6; }
+.view { height: 350px; position: relative; touch-action: none; }
+.view canvas { width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; left: 10px; top: 10px; z-index: 1; font-size: 11px; background: #14222bd9; padding: 7px 10px; border-radius: 4px; pointer-events: none; line-height: 1.8; white-space: pre-line; }
+.readout { padding: 12px 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 16px; font-variant-numeric: tabular-nums; font-size: 12px; }
+.readout div { display: flex; justify-content: space-between; gap: 8px; }
+.readout span { color: #98afc0; }
+.readout b { font-weight: 500; text-align: right; }
+.metrics { padding: 10px 15px; border-top: 1px solid #2d414f; color: #a1b8c8; font-size: 11px; line-height: 1.8; }
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.chart { min-width: 0; background: #182530; border: 1px solid #344756; border-radius: 7px; padding: 12px; }
+h2 { font-size: 13px; font-weight: 500; margin: 0 0 8px; }
+small { margin-left: 8px; color: #93adbf; font-size: 10px; }
+.graph { height: 150px; position: relative; }
+.graph canvas { width: 100%; height: 100%; }
+.cursor { display: block; position: absolute; top: 10px; bottom: 24px; width: 1px; background: #f1f6f9b0; pointer-events: none; }
+footer { color: #90a7b8; font-size: 11px; margin-top: 18px; line-height: 1.6; }
+footer p { margin: 4px 0; }
+@media (max-width: 850px) {
+  body { padding: 14px; }
+  .toolbar { gap: 9px; }
+  #panes, .charts { grid-template-columns: 1fr; }
+  .header-note { display: none; }
+  .view { height: 320px; }
+  #events { margin-left: 0; }
+}

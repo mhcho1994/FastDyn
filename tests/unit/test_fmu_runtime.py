@@ -168,20 +168,38 @@ int fmi3Terminate(void *s) { return 0; }
     driver = tmp_path/"driver.c"
     driver.write_text(r"""
 #include "physics_engines/fmu/fmu.h"
+#include "gyro_acoustic.h"
 #include <stdio.h>
+static double acoustic_time;
+static bool acoustic_truth;
+bool gyro_acoustic_enabled(void) { return true; }
+int gyro_acoustic_step(double t, const AcousticObservation *observation, const double pwm[4]) {
+    acoustic_time = t;
+    acoustic_truth = observation->truth_valid;
+    if (observation->truth_valid) {
+        if (observation->position_ned[0] != 12 || observation->quaternion_wb[0] != 1) return 0;
+    }
+    return 1;
+}
+void gyro_acoustic_add(double gyro[3]) { gyro[0] += 0.25; }
 int main(int argc, char **argv) {
     fmu_init(argc-1, argv+1);
     if (!fmu_backend.init()) return 2;
     for (int i = 1; i <= 200; ++i) {
         if (!fmu_backend.advance_simulation(i * 0.001)) return 3;
     }
+    imu_batch_t batch;
+    if (acoustic_time < 0.199 || !fmu_backend.get_imu_batch(&batch)) return 4;
+    if (batch.imu[0].gyro.x != 0.25f || batch.imu[16].gyro.x != 0.25f) return 5;
     fmu_backend.shutdown();
     puts("advanced=0.200");
+    printf("truth_valid=%d\n", acoustic_truth);
     return 0;
 }
 """)
     driver_bin = tmp_path/"driver"
     subprocess.run(["cc", "-std=c11", "-D_POSIX_C_SOURCE=200809L",
+                    "-I", str(REPO/"virtuals/gyro_acoustic/runtime"),
                     "-I", str(REPO/"virtuals/physics"), str(driver),
                     str(REPO/"virtuals/physics/physics_engines/fmu/fmu.c"),
                     "-ldl", "-lm", "-o", str(driver_bin)], check=True)

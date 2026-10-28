@@ -1,4 +1,5 @@
 #include "fmu.h"
+#include "gyro_acoustic.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -560,6 +561,7 @@ static int fmu_get_imu_batch(imu_batch_t *imu_batch)
     if (!get_values(fmu_state.vr.accel, accel, 3) || !get_values(fmu_state.vr.gyro, gyro, 3)) {
         return 0;
     }
+    gyro_acoustic_add(gyro);
 
     for (int i = 0; i < 17; i++) {
         imu_batch->imu[i].accel_body.x = (float)accel[0];
@@ -676,6 +678,25 @@ static int fmu_advance_simulation(double run_until_time)
             return 0;
         }
         fmu_state.time_s = last_successful > fmu_state.time_s ? last_successful : fmu_state.time_s + h;
+        if (gyro_acoustic_enabled()) {
+            AcousticObservation observation = {.truth_valid = fmu_state.has_truth};
+            if (!get_values(fmu_state.vr.gyro, observation.gyro, 3) ||
+                !get_values(fmu_state.vr.accel, observation.accel, 3) ||
+                !get_values(fmu_state.vr.vel_ned, observation.velocity_ned, 3) ||
+                !get_values(fmu_state.vr.baro_altitude_m, &observation.altitude_m, 1)) {
+                return 0;
+            }
+            if (fmu_state.has_truth &&
+                (!get_values(fmu_state.vr.truth_position, observation.position_ned, 3) ||
+                 !get_values(fmu_state.vr.truth_velocity, observation.velocity_ned, 3) ||
+                 !get_values(fmu_state.vr.truth_quaternion, observation.quaternion_wb, 4) ||
+                 !get_values(fmu_state.vr.truth_rate, observation.body_rate, 3))) {
+                return 0;
+            }
+            if (!gyro_acoustic_step(fmu_state.time_s, &observation, fmu_state.pwm)) {
+                return 0;
+            }
+        }
         if (event_needed || early_return) {
             break;
         }

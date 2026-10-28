@@ -9,6 +9,7 @@ subdir('variable_watch')
 subdir('world')
 
 if get_option('enable_phy')
+    subdir('gyro_acoustic')
     subdir('physics')
 endif
 

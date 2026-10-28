@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/mhcho1994/FastDyn",
+  "commit": "74afbccff4386b5b71a003b14d5203d3b5a74920",
+  "three_version": "0.170.0",
+  "files": {
+    "vendor/three.module.js": {
+      "source": "demos/physics_analysis/web/vendor/three.module.js",
+      "sha256": "ce1fa418de16a19495a9f72495580e3015d7745c296d3ce0485897f902ddedfb"
+    },
+    "vendor/GLTFLoader.js": {
+      "source": "demos/physics_analysis/web/vendor/GLTFLoader.js",
+      "sha256": "8a7db5a19d1018d79fb9a7a8b8372f317682027321a67d86023002e264ea479d"
+    },
+    "vendor/BufferGeometryUtils.js": {
+      "source": "demos/physics_analysis/web/vendor/BufferGeometryUtils.js",
+      "sha256": "c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6"
+    },
+    "vendor/three_viewer.js": {
+      "source": "demos/physics_analysis/web/vendor/three_viewer.js",
+      "sha256": "33d4d9a9270451039bb2e45744ae91d185652061de26495e6cd3f55889685672"
+    },
+    "licenses/THREE_LICENSE.txt": {
+      "source": "demos/physics_analysis/licenses/THREE_LICENSE.txt",
+      "sha256": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454"
+    },
+    "licenses/RUMOCA_LICENSE.txt": {
+      "source": "demos/physics_analysis/licenses/RUMOCA_LICENSE.txt",
+      "sha256": "a4ef2d32e824253636e23a524aee2dd89ece92647ab1124452449c3c7729724d"
+    }
+  }
+}
