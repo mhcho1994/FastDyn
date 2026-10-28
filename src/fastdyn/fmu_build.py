@@ -43,6 +43,14 @@ REQUIRED_VALUE_REFERENCES = (
     "earth_radius_m",
 )
 
+# Optional rigid-body diagnostics. Older sensor-only FMUs remain supported.
+OPTIONAL_VALUE_REFERENCES = {
+    "truth.p_w": 3,
+    "truth.v_w": 3,
+    "truth.q_wb": 4,
+    "truth.omega_b": 3,
+}
+
 
 class FmuConfigError(RuntimeError):
     pass
@@ -513,6 +521,7 @@ def value_references(build: FmuBuild, *, xml: bytes | None = None) -> dict[str, 
         raise FmuConfigError(f"invalid FMU modelDescription.xml for {build.name}: {exc}") from exc
 
     requested = set(REQUIRED_VALUE_REFERENCES)
+    requested.update(OPTIONAL_VALUE_REFERENCES)
     requested.update((build.parameters or {}).keys())
 
     refs: dict[str, int] = {}
@@ -522,6 +531,12 @@ def value_references(build: FmuBuild, *, xml: bytes | None = None) -> dict[str, 
         name = element.attrib.get("name")
         raw_vr = element.attrib.get("valueReference")
         if name in requested and raw_vr is not None:
+            if name in OPTIONAL_VALUE_REFERENCES:
+                dimensions = element.findall('Dimension')
+                if len(dimensions) != 1 or dimensions[0].get('start') != str(
+                    OPTIONAL_VALUE_REFERENCES[name]
+                ):
+                    raise FmuConfigError(f"FMU diagnostic {name!r} has an incompatible shape")
             try:
                 refs[name] = int(raw_vr)
             except ValueError as exc:
